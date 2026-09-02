@@ -1,0 +1,8 @@
+*.db
+CertsPyGenerator.spec
+pytest.ini
+*.toc
+*.pyz
+*.pyc
+*.pem
+*.key
