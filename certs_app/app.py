@@ -188,6 +188,7 @@ class CertsPyGeneratorApp(tk.Tk):
 
         self.csr_name_var = tk.StringVar(value="")
         self.csr_key_path = tk.StringVar(value="")
+        self.csr_output_dir = tk.StringVar(value="")
         self.csr_password_var = tk.StringVar(value="")
         self.repo_select_var = tk.StringVar(value="")
         self.csr_subject_fields = {
@@ -208,15 +209,19 @@ class CertsPyGeneratorApp(tk.Tk):
 
         ttk.Label(frame, text="Clave usada:").grid(row=7, column=0, sticky="w", padx=10, pady=8)
         ttk.Entry(frame, textvariable=self.csr_key_path).grid(row=7, column=1, sticky="ew", padx=10, pady=8)
-        ttk.Button(frame, text="Seleccionar clave", command=lambda: self._select_file(self.csr_key_path, filetypes=[("KEY", "*.key"), ("PEM", "*.pem")])).grid(row=7, column=2, padx=(0, 10), pady=8)
+        ttk.Button(frame, text="Seleccionar clave", command=self._select_csr_key).grid(row=7, column=2, padx=(0, 10), pady=8)
 
         ttk.Label(frame, text="Nombre CSR:").grid(row=8, column=0, sticky="w", padx=10, pady=8)
         ttk.Entry(frame, textvariable=self.csr_name_var).grid(row=8, column=1, sticky="ew", padx=10, pady=8)
 
-        ttk.Label(frame, text="Contraseña clave:").grid(row=9, column=0, sticky="w", padx=10, pady=8)
-        ttk.Entry(frame, textvariable=self.csr_password_var, show="*").grid(row=9, column=1, sticky="w", padx=10, pady=8)
+        ttk.Label(frame, text="Carpeta destino CSR:").grid(row=9, column=0, sticky="w", padx=10, pady=8)
+        ttk.Entry(frame, textvariable=self.csr_output_dir).grid(row=9, column=1, sticky="ew", padx=10, pady=8)
+        ttk.Button(frame, text="Elegir carpeta", command=self._choose_csr_output_dir).grid(row=9, column=2, padx=(0, 10), pady=8)
 
-        row_idx = 10
+        ttk.Label(frame, text="Contraseña clave:").grid(row=10, column=0, sticky="w", padx=10, pady=8)
+        ttk.Entry(frame, textvariable=self.csr_password_var, show="*").grid(row=10, column=1, sticky="w", padx=10, pady=8)
+
+        row_idx = 11
         for key in ["C", "ST", "L", "O", "OU", "CN", "email"]:
             ttk.Label(frame, text={"C": "País", "ST": "Provincia", "L": "Localidad", "O": "Organización", "OU": "Unidad", "CN": "Nombre común", "email": "Email"}[key]).grid(row=row_idx, column=0, sticky="w", padx=10, pady=6)
             ttk.Entry(frame, textvariable=self.csr_subject_fields[key]).grid(row=row_idx, column=1, sticky="ew", padx=10, pady=6)
@@ -407,6 +412,20 @@ class CertsPyGeneratorApp(tk.Tk):
         if filename:
             var.set(filename)
 
+    def _select_csr_key(self) -> None:
+        filename = filedialog.askopenfilename(
+            title="Seleccionar clave privada",
+            filetypes=[("KEY", "*.key"), ("PEM", "*.pem")],
+        )
+        if filename:
+            self.csr_key_path.set(filename)
+            self.csr_output_dir.set(os.path.dirname(filename))
+
+    def _choose_csr_output_dir(self) -> None:
+        folder = filedialog.askdirectory(title="Seleccionar carpeta de destino del CSR")
+        if folder:
+            self.csr_output_dir.set(folder)
+
     def _save_file(self, var: tk.StringVar, default_name: str) -> None:
         filename = filedialog.asksaveasfilename(title="Guardar archivo", initialfile=default_name, defaultextension="")
         if filename:
@@ -556,15 +575,16 @@ class CertsPyGeneratorApp(tk.Tk):
                 raise ValueError("Selecciona la clave privada antes de generar el CSR.")
 
             custom_name = self.csr_name_var.get().strip()
+            custom_dir = ""
             if custom_name:
                 custom_path = os.path.expanduser(custom_name)
                 file_name = os.path.basename(custom_path)
                 base_name = os.path.splitext(file_name)[0]
-                output_dir = os.path.dirname(custom_path) or os.getcwd()
-                output_path = os.path.join(output_dir, build_csr_filename(base_name))
+                custom_dir = os.path.dirname(custom_path)
             else:
                 base_name = os.path.splitext(os.path.basename(key_path))[0]
-                output_path = os.path.join(os.path.dirname(key_path), build_csr_filename(base_name))
+            output_dir = self.csr_output_dir.get().strip() or custom_dir or os.path.dirname(key_path) or os.getcwd()
+            output_path = os.path.join(output_dir, build_csr_filename(base_name))
 
             subject = {
                 "C": self.csr_subject_fields["C"].get(),
